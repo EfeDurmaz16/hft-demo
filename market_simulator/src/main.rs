@@ -1,34 +1,10 @@
 use anyhow::Result;
+use hft_types::MarketTick;
 use rand::Rng;
-use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::net::UdpSocket;
 use tokio::time::{interval, Duration};
 use tracing::{info, warn};
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MarketTick {
-    pub symbol: String,
-    pub price: f64,
-    pub volume: u64,
-    pub timestamp_nanos: u128,
-}
-
-impl MarketTick {
-    pub fn new(symbol: String, price: f64, volume: u64) -> Self {
-        let timestamp_nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-
-        Self {
-            symbol,
-            price,
-            volume,
-            timestamp_nanos,
-        }
-    }
-}
 
 struct MarketSimulator {
     socket: UdpSocket,
@@ -70,12 +46,16 @@ impl MarketSimulator {
             let symbol = self.symbols[idx].clone();
             let base_price = self.base_prices[idx];
 
-            // Add random walk
+            // Random walk
             let price_delta = rng.gen_range(-0.01..0.01);
             let price = base_price * (1.0 + price_delta);
             let volume = rng.gen_range(1..100);
 
-            let tick = MarketTick::new(symbol, price, volume);
+            let timestamp_nanos = SystemTime::now()
+                .duration_since(UNIX_EPOCH)?
+                .as_nanos();
+
+            let tick = MarketTick::new(symbol, price, volume, timestamp_nanos);
             let payload = serde_json::to_vec(&tick)?;
 
             match self.socket.send(&payload).await {
@@ -96,9 +76,9 @@ async fn main() -> Result<()> {
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    let bind_addr = "0.0.0.0:0"; // ephemeral port
-    let target_addr = "127.0.0.1:9001"; // feed_handler listens here
-    let ticks_per_second = 10_000; // 10k ticks/sec for high-frequency demo
+    let bind_addr = "0.0.0.0:0";
+    let target_addr = "127.0.0.1:9001";
+    let ticks_per_second = 10_000;
 
     let mut simulator = MarketSimulator::new(bind_addr, target_addr).await?;
     simulator.run(ticks_per_second).await?;

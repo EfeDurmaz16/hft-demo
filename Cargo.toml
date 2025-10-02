@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "hft-types",
     "market_simulator",
     "feed_handler",
     "strategy_engine",
@@ -24,3 +25,5 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 prometheus = "0.13"
 lazy_static = "1.5"
+config = "0.14"
+hft-types = { path = "hft-types" }

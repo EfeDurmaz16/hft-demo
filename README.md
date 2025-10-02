@@ -44,11 +44,21 @@ A complete **end-to-end high-frequency trading simulation** built in Rust with a
 
 ### Rust Microservices
 
-1. **market_simulator** - Generates fake market ticks over UDP at 10k/sec
-2. **feed_handler** - Receives UDP ticks, measures latency, forwards to strategy
-3. **strategy_engine** - Simple threshold-based trading strategy
-4. **order_gateway** - Simulates order placement with latency tracking
-5. **telemetry** - Prometheus metrics + WebSocket feed for dashboard
+1. **hft-types** - Shared types library with:
+   - Core data structures (MarketTick, Order, OrderBook)
+   - IPC messaging framework with TCP framing
+   - Market replay system for backtesting
+   - Strategy framework (Threshold, Market Making, Mean Reversion)
+   - Order book manager with L2 data reconstruction
+
+2. **market_simulator** - Generates fake market ticks over UDP at 10k/sec
+3. **feed_handler** - Receives UDP ticks, measures latency, forwards to strategy
+4. **strategy_engine** - Multiple trading strategies available:
+   - Threshold-based strategy
+   - Market making with spread management
+   - Mean reversion with statistical analysis
+5. **order_gateway** - Simulates order placement with latency tracking
+6. **telemetry** - Prometheus metrics + WebSocket feed for dashboard
 
 ### Frontend
 
@@ -150,32 +160,53 @@ docker-compose up -d
 
 ## 🔧 Configuration
 
-### Market Simulator
+All system parameters are now centralized in `config.toml`:
 
-Edit `market_simulator/src/main.rs`:
+```toml
+[system]
+tick_rate = 10000  # ticks per second
 
-```rust
-let ticks_per_second = 10_000; // Adjust tick rate
-let symbols = vec!["BTC/USD", "ETH/USD", ...]; // Add symbols
+[symbols]
+enabled = ["BTC/USD", "ETH/USD", "SOL/USD", "AVAX/USD"]
+
+[symbols.thresholds]
+"BTC/USD" = { low = 44000.0, high = 46000.0 }
+
+[strategy]
+type = "threshold"  # Options: threshold, market_making, mean_reversion
+order_size = 1.0
+
+[metrics]
+prometheus_enabled = true
+export_interval_ms = 1000
 ```
 
-### Strategy Engine
+## 🧪 Testing & Benchmarking
 
-Edit `strategy_engine/src/main.rs`:
+### Run Performance Benchmarks
 
-```rust
-thresholds.insert("BTC/USD".to_string(), (44000.0, 46000.0)); // (low, high)
+```bash
+cargo bench
 ```
 
-### Telemetry Update Rate
+This runs Criterion benchmarks for:
+- Tick serialization/deserialization
+- Order creation latency
+- Latency measurement overhead
 
-Edit `telemetry/src/main.rs`:
+### Run Integration Tests
 
-```rust
-let mut interval = tokio::time::interval(Duration::from_millis(500)); // WebSocket update rate
+```bash
+cargo test
 ```
 
-## 🧪 Testing Latency
+Tests include:
+- Market tick validation
+- Order book operations
+- Strategy behavior
+- Market replay functionality
+
+### Latency Measurement
 
 The system measures **three latency points**:
 
@@ -184,6 +215,26 @@ The system measures **three latency points**:
 3. **Order Latency**: Time from signal to order placement
 
 All metrics are exposed via Prometheus histograms with µs precision.
+
+### Market Replay for Backtesting
+
+Record live market data:
+```rust
+use hft_types::replay::MarketRecorder;
+
+let mut recorder = MarketRecorder::new("data/market_2024.jsonl")?;
+recorder.record_tick(&tick)?;
+```
+
+Replay for backtesting:
+```rust
+use hft_types::replay::MarketReplayer;
+
+let mut replayer = MarketReplayer::new("data/market_2024.jsonl")?;
+while let Some(tick) = replayer.next_tick()? {
+    // Process tick through strategy
+}
+```
 
 ## 📈 Prometheus Queries
 
@@ -233,15 +284,53 @@ MY_METRIC.inc();
 
 ### Adding New Symbols
 
-Edit the symbols list in `market_simulator/src/main.rs` and corresponding thresholds in `strategy_engine/src/main.rs`.
+Update `config.toml` with new symbols and thresholds:
+
+```toml
+[symbols]
+enabled = ["BTC/USD", "ETH/USD", "NEW/SYMBOL"]
+
+[symbols.thresholds]
+"NEW/SYMBOL" = { low = 100.0, high = 200.0 }
+
+[symbols.base_prices]
+"NEW/SYMBOL" = 150.0
+```
+
+### Creating Custom Strategies
+
+Implement the `Strategy` trait from `hft-types`:
+
+```rust
+use hft_types::strategies::Strategy;
+use hft_types::{EnrichedTick, TradingSignal};
+
+pub struct MyStrategy {
+    // Your strategy state
+}
+
+impl Strategy for MyStrategy {
+    fn process_tick(&mut self, tick: &EnrichedTick) -> Option<TradingSignal> {
+        // Your strategy logic
+    }
+
+    fn name(&self) -> &str {
+        "MyStrategy"
+    }
+}
+```
 
 ## 📝 Architecture Decisions
 
+- **Shared Types Library**: Centralized data structures prevent duplication and ensure consistency
 - **UDP over TCP**: Prioritizes latency over reliability (acceptable for market data)
 - **Crossbeam Channels**: Lock-free MPMC channels for inter-thread communication
+- **IPC Framework**: TCP-based message framing for reliable inter-process communication
+- **Strategy Pattern**: Pluggable strategies (Threshold, Market Making, Mean Reversion)
 - **Prometheus**: Industry-standard metrics with histograms for latency percentiles
 - **WebSocket**: Real-time push for dashboard updates without polling
 - **Tokio**: Async runtime for efficient I/O multiplexing
+- **Market Replay**: Record and replay functionality for strategy backtesting
 
 ## 🔍 Troubleshooting
 
@@ -258,14 +347,27 @@ Edit the symbols list in `market_simulator/src/main.rs` and corresponding thresh
 - Reduce tick rate in market_simulator
 - Check CPU affinity settings
 
-## 📚 Further Enhancements
+## 📚 Recent Improvements (v0.2.0)
 
-- [ ] Add real exchange connectors (Binance, Coinbase)
-- [ ] Implement order book reconstruction
-- [ ] Add market making strategy
+✅ **Completed:**
+- Shared types library (`hft-types`) with centralized data structures
+- IPC messaging framework with TCP framing
+- Unified configuration system (`config.toml`)
+- Market replay system for backtesting
+- Advanced strategies (Market Making, Mean Reversion)
+- Order book manager with L2 reconstruction
+- Performance benchmarks using Criterion
+- Comprehensive integration tests
+
+## 📚 Future Enhancements
+
+- [ ] Add real exchange connectors (Binance, Coinbase WebSocket)
+- [ ] Real-time order book visualization in dashboard
+- [ ] Multi-strategy portfolio with risk management
 - [ ] GPU acceleration for signal processing
 - [ ] Kernel bypass networking (DPDK)
 - [ ] FPGA tick-to-trade pipeline
+- [ ] Machine learning strategy using LSTM/Transformer
 
 ## 📄 License
 

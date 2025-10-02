@@ -10,4 +10,6 @@ serde_json = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+config = { workspace = true }
+hft-types = { workspace = true }
 rand = "0.8"

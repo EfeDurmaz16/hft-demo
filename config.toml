@@ -1,0 +1,38 @@
+[system]
+name = "HFT-Demo"
+tick_rate = 10000  # ticks per second
+
+[network]
+market_simulator_port = 9001
+feed_handler_port = 9002
+strategy_engine_port = 9003
+order_gateway_port = 9004
+telemetry_port = 9090
+
+[symbols]
+enabled = ["BTC/USD", "ETH/USD", "SOL/USD", "AVAX/USD"]
+
+[symbols.thresholds]
+"BTC/USD" = { low = 44000.0, high = 46000.0 }
+"ETH/USD" = { low = 2400.0, high = 2600.0 }
+"SOL/USD" = { low = 95.0, high = 105.0 }
+"AVAX/USD" = { low = 24.0, high = 26.0 }
+
+[symbols.base_prices]
+"BTC/USD" = 45000.0
+"ETH/USD" = 2500.0
+"SOL/USD" = 100.0
+"AVAX/USD" = 25.0
+
+[strategy]
+type = "threshold"
+order_size = 1.0
+
+[metrics]
+prometheus_enabled = true
+export_interval_ms = 1000
+histogram_buckets = [1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0, 2500.0, 5000.0, 10000.0]
+
+[logging]
+level = "info"
+format = "pretty"
