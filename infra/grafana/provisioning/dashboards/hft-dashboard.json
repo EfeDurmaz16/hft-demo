@@ -1,0 +1,44 @@
+{
+  "dashboard": {
+    "title": "HFT Trading Metrics",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Tick Processing Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(feed_ticks_received_total[1m])",
+            "legendFormat": "Ticks/sec"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Latency Distribution (µs)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, feed_latency_micros_bucket)",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.99, feed_latency_micros_bucket)",
+            "legendFormat": "p99"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Orders Placed",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "gateway_orders_placed_total",
+            "legendFormat": "Total Orders"
+          }
+        ]
+      }
+    ]
+  }
+}
